@@ -8,6 +8,7 @@ app.use(express.json()); //for parsing the body in a post request
 
 const {UserModel,TodoModel} = require("./db");
 const { default: mongoose } = require("mongoose");
+const {auth, JWT_SECRET } = require("./auth");
 mongoose.connect("mongodb+srv://parsaniajenil:firstdb@cluster0.46eul.mongodb.net/firsttime");
 // at the end of the / -> I had to enter the name of the database to create one , other wise , it was throwing an error 
 
@@ -57,23 +58,7 @@ app.post("/signin",async function(req,res){
 });
 
 // creating an auth middleware
-async function auth(req,res,next){
-   
-    const token = req.headers.token;
 
-    const response = jwt.verify(token,JWT_SECRET);
-    //  here the response would be equal to the 'token' in the "signin" endpoint function
-
-    if(response){
-        req.userId = response.id;
-        next();
-    }else{
-        res.status(403).json({
-            message:"Incorrect creds"
-        });
-    }
-
-}
 
 app.post("/todo",auth,async function(req,res){
     // as the authentication is done , we would proceed now 
