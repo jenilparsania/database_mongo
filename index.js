@@ -1,6 +1,9 @@
+const bcrypt = require("bcrypt");
 const express = require("express");
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = "s3cret";
+const {z} = require("zod");
+
+// const JWT_SECRET = "s3cret";
 
 const app = express();
 
@@ -9,24 +12,58 @@ app.use(express.json()); //for parsing the body in a post request
 const {UserModel,TodoModel} = require("./db");
 const { default: mongoose } = require("mongoose");
 const {auth, JWT_SECRET } = require("./auth");
-mongoose.connect("mongodb+srv://parsaniajenil:firstdb@cluster0.46eul.mongodb.net/firsttime");
+mongoose.connect("mongodb+srv://parsaniajenil:firstdb@cluster0.46eul.mongodb.net/hash_passwords");
 // at the end of the / -> I had to enter the name of the database to create one , other wise , it was throwing an error 
 
 app.post("/signup",async function(req,res){
 
+    const requiredBody = z.object({
+        email:z.string().min(3).max(100).email(),
+        name:z.string().min(3).max(100),
+        password:z.string().min(3).max(30),
+    });
+
+    const parsedDatawithSucess = requiredBody.safeParse(req.body);
+
+    if(!parsedDatawithSucess.success){
+        res.json({
+            message: "Incorrect format",
+            error:parsedDatawithSucess.error
+        });
+
+        return
+    }
     const email = req.body.email;
     const password = req.body.password;
     const name = req.body.name;
 
-    await UserModel.create({
-        email:email,
-        password:password,
-        name:name
-    });
+    const hashedPassword = await bcrypt.hash(password,5);
+    console.log(hashedPassword);
+    let errorThrown = false;
 
-    res.json({
-        message: "you are logged in"
-    });
+    
+    try{
+
+        await UserModel.create({
+            email:email,
+            password:hashedPassword,
+            name:name
+        });
+    }catch(e){
+        res.json({
+            message:"User Already Exists"
+        });
+
+        errorThrown = true;
+
+    }
+
+    if(!errorThrown){
+
+        res.json({
+            message: "you are signed up"
+        });
+    }
 });
 
 
@@ -35,9 +72,21 @@ app.post("/signin",async function(req,res){
     const password = req.body.password;
 
     const user = await UserModel.findOne({
-        email:email,
-        password:password
+        email:email
     });
+
+ 
+    if(!user){
+        res.status(403).json({
+            message:"user does not exist"
+        });
+
+        return
+
+    }
+    const passwordMatch = bcrypt.compare(password,user.password);
+    // the compare function returns a promise so , it should be awaited
+    
 
     console.log(user);
     
